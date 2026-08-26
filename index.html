@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>D班 2026 终极校准排班</title>
+    <title>ABCD四班 2026 排班校准</title>
     <style>
         :root { --day-color: #FF9800; --night-color: #F44336; --rest-color: #f8fcf9; --rest-text: #4CAF50; --today-blue: #2196F3; --nav-bg: #263238; }
         body { font-family: -apple-system, sans-serif; background: #cfd8dc; display: flex; flex-direction: column; align-items: center; padding: 10px; margin: 0; }
@@ -18,7 +18,13 @@
         .search-box { display: flex; align-items: center; background: white; border-radius: 6px; flex: 1; height: 38px; padding: 0 12px; box-sizing: border-box; overflow: hidden; }
         .search-box span { font-size: 13px; color: #546e7a; font-weight: bold; white-space: nowrap; margin-right: 8px; }
         .search-box input[type="date"] { flex: 1; border: none; outline: none; background: transparent; font-size: 14px; color: #333; height: 100%; padding: 0; cursor: pointer; }
-
+        
+        /* ===== 班次切换 ===== */
+        .shift-row { display: flex; gap: 8px; margin-bottom: 12px; }
+        .shift-btn { flex: 1; height: 42px; border-radius: 8px; font-size: 15px; font-weight: bold; border: 2px solid var(--sc); background: transparent; color: var(--sc); cursor: pointer; transition: background 0.2s, color 0.2s, transform 0.1s; }
+        .shift-btn:active { transform: scale(0.96); }
+        .shift-btn.active { background: var(--sc); color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.15) inset; }
+        
         .card { background: white; width: 100%; max-width: 420px; padding: 10px; border: 1px solid #b0bec5; border-bottom: none; box-sizing: border-box; }
         .month-label { font-weight: bold; text-align: center; font-size: 20px; color: #37474f; margin: 10px 0 15px 0; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
@@ -27,6 +33,17 @@
         .dr-col { font-size: 9px; color: #90a4ae; display: block; margin-top: 2px; }
         .cell { border: 1px solid #e0e0e0; text-align: center; font-weight: bold; font-size: 15px; height: 48px; position: relative; }
         .tiny-date { position: absolute; top: 2px; left: 3px; font-size: 9px; font-weight: normal; color: #999; }
+        .tiny-date.hd { color: #e53935; font-weight: bold; }
+        .is-night .tiny-date.hd { color: #fff; }
+        .holiday-badge {
+            position: absolute; right: 2px; bottom: 2px;
+            display: inline-flex; align-items: center; gap: 2px;
+            background: #fff; border: 1px solid #e53935; border-radius: 7px;
+            padding: 1px 3px; box-sizing: border-box;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+        }
+        .holiday-badge .h-name { font-size: 8px; color: #e53935; font-weight: bold; line-height: 1; }
+        .holiday-badge .h-dot { width: 5px; height: 5px; border-radius: 50%; background: #e53935; flex: none; }
         .is-day { background: var(--day-color); color: white; }
         .is-night { background: var(--night-color); color: white; }
         .is-rest { background: var(--rest-color); color: var(--rest-text); }
@@ -39,6 +56,13 @@
         .today { z-index: 99; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%) !important; animation: shadow-pulse 1.5s infinite; color: #0d47a1 !important; border: none !important; }
         
         .status-footer { width: 100%; max-width: 420px; background: #fff; border: 1px solid #b0bec5; border-radius: 0 0 12px 12px; padding: 20px 15px; box-sizing: border-box; text-align: center; border-top: 2px dashed #cfd8dc; min-height: 100px; cursor: pointer; user-select: none; }
+        .legend { margin-bottom: 8px; }
+        .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #607d8b; margin: 0 7px; }
+        .chip::before { content: ''; width: 10px; height: 10px; border-radius: 3px; }
+        .chip.day::before { background: var(--day-color); }
+        .chip.night::before { background: var(--night-color); }
+        .chip.rest::before { background: #c8e6c9; outline: 1px solid var(--rest-text); }
+        .chip.holiday::before { background: #e53935; border-radius: 50%; }
         .today-status { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
         .funny-quote { font-size: 14px; color: #78909c; font-style: italic; line-height: 1.4; }
     </style>
@@ -49,6 +73,12 @@
         <button onclick="move(-1)">上个月</button>
         <button style="background:var(--today-blue);font-weight:bold" onclick="toToday()">回到今天</button>
         <button onclick="move(1)">下个月</button>
+    </div>
+    <div class="shift-row">
+        <button class="shift-btn" data-shift="A" style="--sc:#2196F3" onclick="selectShift('A')">A班</button>
+        <button class="shift-btn" data-shift="B" style="--sc:#F44336" onclick="selectShift('B')">B班</button>
+        <button class="shift-btn" data-shift="C" style="--sc:#4CAF50" onclick="selectShift('C')">C班</button>
+        <button class="shift-btn active" data-shift="D" style="--sc:#FF9800" onclick="selectShift('D')">D班</button>
     </div>
     <div class="nav-row">
         <div class="search-box">
@@ -65,10 +95,19 @@
     </table>
 </div>
 <div class="status-footer" onclick="refreshQuote()">
+    <div class="legend">
+        <span class="chip day">白班</span>
+        <span class="chip night">夜班</span>
+        <span class="chip rest">休息</span>
+        <span class="chip holiday">法定节假日·3倍</span>
+    </div>
     <div id="statusLabel" class="today-status">状态读取中...</div>
     <div id="quoteLabel" class="funny-quote">点击我有惊喜...</div>
 </div>
 <script>
+/* ===== D 班全年数据（源数据）===== */
+/* 排班编码：0=休  1=白班  2=夜班 */
+/* 月份分组与官方排班卡一致（如 8 月 = 第31/32/33/34 周） */
 const fullData = [
     { m: "January", weeks: [{ w: "01", r: "12-28", s: [0,0,0,2,2,2,2] }, { w: "02", r: "1-4", s: [0,0,0,0,2,2,2] }, { w: "03", r: "1-11", s: [0,0,0,2,2,2,2] }, { w: "04", r: "1-18", s: [0,0,0,0,2,2,2] }]},
     { m: "February", weeks: [{ w: "05", r: "1-25", s: [0,0,0,2,2,2,2] }, { w: "06", r: "2-1", s: [0,0,0,0,2,2,2] }, { w: "07", r: "2-8", s: [0,0,0,2,2,2,2] }, { w: "08", r: "2-15", s: [0,0,0,0,2,2,2] }]},
@@ -84,45 +123,157 @@ const fullData = [
     { m: "December", weeks: [{ w: "48", r: "11-22", s: [1,1,1,1,0,0,0] }, { w: "49", r: "11-29", s: [1,1,1,0,0,0,0] }, { w: "50", r: "12-6", s: [1,1,1,1,0,0,0] }, { w: "51", r: "12-13", s: [1,1,1,0,0,0,0] }, { w: "52", r: "12-20", s: [1,1,1,1,0,0,0] }]}
 ];
 
-const quotes = [{q: "好好休息，我是牛马。🐂🐎"}, {q: "只要够努力，老板明年换宾利。🚗"}, {q: "状态：身体在工位，灵魂在马尔代夫。🏝️"}, {q: "打工人，打工魂，打工都是人上人！✨"}];
-let curM = new Date().getMonth(); const today = new Date();
+/* ===== 班次生成规则（依据官方排班卡校验）=====
+ * D：源数据
+ * C：和 D 同一天上班，白夜互换（D夜→C白）
+ * B：D 休息的那几天上班，班型跟随 D（D 这周上白 B 就上白，上夜 B 就上夜）
+ * A：和 B 同一天上班，白夜互换（B夜→A白）
+ */
+const SHIFT_META = {
+    A: { label: 'A班', color: '#2196F3' },
+    B: { label: 'B班', color: '#F44336' },
+    C: { label: 'C班', color: '#4CAF50' },
+    D: { label: 'D班', color: '#FF9800' }
+};
 
+function deriveWeek(shift, d) {
+    if (shift === 'D') return d.slice();
+    if (shift === 'C') return d.map(x => x === 0 ? 0 : (x === 1 ? 2 : 1));
+    const wt = d.find(x => x !== 0) || 1;              // D 本周班型（白或夜）
+    const b = d.map(x => x !== 0 ? 0 : wt);            // B：D休我上，类型跟随D
+    if (shift === 'B') return b;
+    return b.map(x => x === 0 ? 0 : (x === 1 ? 2 : 1)); // A：与B白夜互换
+}
+
+function buildShiftData(shift) {
+    return fullData.map(m => ({
+        m: m.m,
+        weeks: m.weeks.map(w => ({ w: w.w, r: w.r, s: deriveWeek(shift, w.s) }))
+    }));
+}
+
+const allData = {
+    A: buildShiftData('A'),
+    B: buildShiftData('B'),
+    C: buildShiftData('C'),
+    D: buildShiftData('D')
+};
+
+/* ===== 交互状态 ===== */
+const quotes = [
+    "好好休息，我是牛马。",
+    "只要够努力，老板明年换宾利。",
+    "状态：身体在工位，灵魂在马尔代夫。",
+    "打工人，打工魂，打工都是人上人。",
+    "班次会轮换，快乐不会跑。",
+    "今天也是元气满满的一天。"
+];
+let curShift = 'D';
+const today = new Date();
+
+/* r 表示该周周日日期；12-28 属 2025 年 12 月，单独校正回上一年 */
 function getActualDateObj(startRange, offset) {
-    let parts = startRange.split('-'); let date = new Date(2026, parseInt(parts[0])-1, parseInt(parts[1]));
-    date.setDate(date.getDate() + offset); return date;
+    let parts = startRange.split('-');
+    let date = new Date(2026, parseInt(parts[0]) - 1, parseInt(parts[1]));
+    if (date.getDay() !== 0) date.setFullYear(2025);
+    date.setDate(date.getDate() + offset);
+    return date;
 }
-function refreshQuote() { 
-    const randomIdx = Math.floor(Math.random() * quotes.length); 
-    document.getElementById('quoteLabel').innerText = quotes[randomIdx].q; 
+
+/* ===== 2026年法定节假日（《全国年节及纪念日放假办法》2025修订版）：当天上班支付300%工资 =====
+ * 元旦1天 / 春节除夕至初三4天 / 清明1天 / 劳动节2天 / 端午1天 / 中秋1天 / 国庆3天
+ */
+const HOLIDAYS = [
+    { m: 1,  d: 1,  name: '元旦' },
+    { m: 2,  d: 16, name: '除夕' },
+    { m: 2,  d: 17, name: '春节' },
+    { m: 2,  d: 18, name: '初二' },
+    { m: 2,  d: 19, name: '初三' },
+    { m: 4,  d: 5,  name: '清明' },
+    { m: 5,  d: 1,  name: '劳动节' },
+    { m: 5,  d: 2,  name: '劳动节' },
+    { m: 6,  d: 19, name: '端午' },
+    { m: 9,  d: 25, name: '中秋' },
+    { m: 10, d: 1,  name: '国庆' },
+    { m: 10, d: 2,  name: '国庆' },
+    { m: 10, d: 3,  name: '国庆' }
+];
+function getHoliday(d) {
+    return HOLIDAYS.find(h => d.getFullYear() === 2026 && d.getMonth() === h.m - 1 && d.getDate() === h.d) || null;
 }
+
+/* 找到"包含今天的那个月份视图"（按官方分组逐月查找），供回到今天/首次加载使用 */
+function findMonthOfToday() {
+    const t = today.toDateString();
+    for (let m = 0; m < fullData.length; m++) {
+        for (let k = 0; k < fullData[m].weeks.length; k++) {
+            const w = fullData[m].weeks[k];
+            for (let i = 0; i < 7; i++) {
+                if (t === getActualDateObj(w.r, i).toDateString()) return m;
+            }
+        }
+    }
+    return today.getMonth();
+}
+
+let curM = findMonthOfToday();
+
+function refreshQuote() {
+    const randomIdx = Math.floor(Math.random() * quotes.length);
+    document.getElementById('quoteLabel').innerText = quotes[randomIdx];
+}
+
 function draw() {
-    const mData = fullData[curM]; document.getElementById('mLabel').innerText = mData.m + " 2026";
-    const grid = document.getElementById('grid'); grid.innerHTML = "";
-    let todayStatusTxt = "休息"; let todayColor = "#4CAF50";
+    const meta = SHIFT_META[curShift];
+    const mData = allData[curShift][curM];
+    document.getElementById('mLabel').innerText = meta.label + ' · ' + mData.m + ' 2026';
+    const grid = document.getElementById('grid');
+    grid.innerHTML = "";
+    let todayStatusTxt = "";
+    let todayColor = "#78909c";
     mData.weeks.forEach(w => {
         let row = `<tr><td class="ww-col">${w.w}<span class="dr-col">${w.r}</span></td>`;
-        w.s.forEach((s, i) => {
-            let dObj = getActualDateObj(w.r, i); let isT = (today.toDateString() === dObj.toDateString());
-            let cls = s==1?'is-day':s==2?'is-night':'is-rest'; let txt = s==1?'白':s==2?'夜':'休';
-            if(isT) { todayStatusTxt = s==1?'白班':s==2?'夜班':'休息'; todayColor = s==1?'#FF9800':s==2?'#F44336':'#4CAF50'; }
+        w.s.forEach((v, i) => {
+            let dObj = getActualDateObj(w.r, i);
+            let isT = (today.toDateString() === dObj.toDateString());
+            let hd = getHoliday(dObj);
+            let cls = v==1?'is-day':v==2?'is-night':'is-rest';
+            let txt = v==1?'白':v==2?'夜':'休';
+            if(isT) { todayStatusTxt = v==1?'白班':v==2?'夜班':'休息'; todayColor = v==1?'#FF9800':v==2?'#F44336':'#4CAF50'; }
             row += `<td class="cell ${cls} ${isT?'today':''}">
-                      <span class="tiny-date">${dObj.getMonth()+1}/${dObj.getDate()}</span>${txt}
+                      <span class="tiny-date${hd?' hd':''}">${dObj.getMonth()+1}/${dObj.getDate()}</span>${txt}
+                      ${hd ? `<span class="holiday-badge"><span class="h-name">${hd.name}</span><span class="h-dot"></span></span>` : ''}
                     </td>`;
         });
         grid.innerHTML += row + "</tr>";
     });
-    document.getElementById('statusLabel').innerText = "🌟 今天：" + todayStatusTxt;
-    document.getElementById('statusLabel').style.color = todayColor;
+    if (todayStatusTxt === "") {
+        document.getElementById('statusLabel').innerText = "今天不在当前月份";
+        document.getElementById('statusLabel').style.color = "#78909c";
+    } else {
+        document.getElementById('statusLabel').innerText = "今天（" + meta.label + "）：" + todayStatusTxt;
+        document.getElementById('statusLabel').style.color = todayColor;
+    }
 }
+
+function selectShift(s) {
+    curShift = s;
+    document.querySelectorAll('.shift-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.shift === s);
+    });
+    draw();
+}
+
 function move(n) { curM = Math.max(0, Math.min(11, curM + n)); draw(); }
-function toToday() { curM = today.getMonth(); draw(); }
-function search(v) { 
-    if(!v) return; 
-    let d=new Date(v); 
-    if(d.getFullYear()==2026){ curM=d.getMonth(); draw(); }
+function toToday() { curM = findMonthOfToday(); draw(); }
+function search(v) {
+    if(!v) return;
+    let d = new Date(v);
+    if(d.getFullYear() == 2026){ curM = d.getMonth(); draw(); }
 }
+
 draw();
-document.getElementById('quoteLabel').innerText = quotes[Math.floor(Math.random() * quotes.length)].q;
+document.getElementById('quoteLabel').innerText = quotes[Math.floor(Math.random() * quotes.length)];
 </script>
 </body>
 </html>
